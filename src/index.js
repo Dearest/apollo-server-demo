@@ -1,5 +1,4 @@
 const { ApolloServer, gql } = require('apollo-server');
-const { tasks } = require('./src/db');
 
 const typeDefs = gql`
   type Task {
@@ -10,12 +9,12 @@ const typeDefs = gql`
   }
 
   type Query {
-    tasks: [Task]
+    tasks(completed: Int): [Task]
     task(id: Int!): Task
   }
 
   type Mutation {
-    createTask(name: String!): Task!
+    createTask(name: String!): [Task]
     updateTask(id: Int!, name: String, completed: Boolean): Task!
     updateSequence(id: Int!, prev_id: Int, next_id: Int): Task!
   }
@@ -23,15 +22,22 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    tasks: () => tasks.sort((a, b) => a.sequence - b.sequence),
-    task: (parent, { id }, context, inf) => tasks.find((task) => task.id == id)
+    tasks: (parent, { completed }, { dataSources }, info) => {
+      if (completed != undefined && completed == 1) {
+        return dataSources.db.getCompletedTasks();
+      }else {
+        return dataSources.db.getUnCompletedTasks();
+      }
+    },
+    task: (parent, { id }, { dataSources }, inf) => {
+      return dataSources.db.getTask(id);
+    }
   },
   Mutation: {
-    createTask: (parent, { name }, context, info) => {
-      const id = tasks.length + 1; // 如果是数据库的话就不用管id,数据库会自己增加1
-      const sequence = tasks.slice(-1)[0].sequence + 1024;
-      tasks.push({id: id, name: name, completed: false, sequence: sequence})
-      return tasks.slice(-1)[0]
+    createTask: (parent, { name }, { dataSources }, info) => {
+      const res = dataSources.db.createTask(name);
+      console.log(res);
+      return dataSources.db.getUnCompletedTasks();
     },
     updateTask: (parent, { id, name, completed }, context, info) => {
       let task = tasks.find((task) => task.id == id)
@@ -56,7 +62,22 @@ const resolvers = {
 };
 
 
-const server = new ApolloServer({ typeDefs, resolvers });
+const Database = require("./db");
+
+const knexConfig = {
+  client: "mysql",
+  connection: {
+    host: '127.0.0.1',
+    user: "tower",
+    password: "123456",
+    database: "apollo-server-dev",
+  },
+  debug: true
+};
+
+const db = new Database(knexConfig);
+
+const server = new ApolloServer({ typeDefs, resolvers, dataSources: () => ({ db }) });
 
 server.listen().then(({ url }) => {
   console.log(`🚀  Server ready at ${url}`);

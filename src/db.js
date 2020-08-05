@@ -1,7 +1,33 @@
-let tasks = [
-  { id: 1, name: "I am first task", completed: false, sequence: 0 },
-  { id: 2, name: "I am second task", completed: false, sequence: 3096 },
-  { id: 3, name: "I am third task", completed: false, sequence: 2048 },
-];
+const { SQLDataSource } = require("datasource-sql");
+class Database extends SQLDataSource {
+  getCompletedTasks() {
+    return this.knex
+      .select("*")
+      .from("tasks")
+      .where("completed", 1)
+      .orderBy("sequence", "asc");
+  };
 
-module.exports = { tasks }
+  getUnCompletedTasks() {
+    return this.knex
+      .select("*")
+      .from("tasks")
+      .where("completed", 0)
+      .orderBy("sequence", "asc");
+  };
+
+  getTask(id) {
+    return this.knex("tasks").select("*").where("id", id).first();
+  }
+
+  createTask(name) {
+    this.knex("tasks").select("*").orderBy("sequence", "desc").first()
+        .then((row) => {
+          this.knex("tasks").insert({name: name, sequence: row.sequence + 1024 })
+        })
+        .catch(function(error) { console.error(error); });
+    // return this.knex("tasks").insert({name: name, sequence: sequence }).catch(function(error) { console.error(error); });
+  };
+}
+
+module.exports = Database;
