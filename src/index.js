@@ -14,7 +14,7 @@ const typeDefs = gql`
   }
 
   type Mutation {
-    createTask(name: String!): [Task]
+    createTask(name: String!): Task
     updateTask(id: Int!, name: String, completed: Boolean): Task!
     updateSequence(id: Int!, prev_id: Int, next_id: Int): Task!
   }
@@ -35,9 +35,8 @@ const resolvers = {
   },
   Mutation: {
     createTask: (parent, { name }, { dataSources }, info) => {
-      const res = dataSources.db.createTask(name);
-      console.log(res);
-      return dataSources.db.getUnCompletedTasks();
+      dataSources.db.createTask(name);
+      return dataSources.db.getLastTask();
     },
     updateTask: (parent, { id, name, completed }, context, info) => {
       let task = tasks.find((task) => task.id == id)
